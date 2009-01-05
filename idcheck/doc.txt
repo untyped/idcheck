@@ -1,0 +1,137 @@
+_IDCheck: Client for the IDCheck Authentication System_
+=======================================================
+
+By  Noel Welsh   (noel at untyped dot com)
+and Dave Gurnell (dave at untyped dot com)
+
+This manual documents IDCheck version 1.2
+Time-stamp: <2007-07-10 12:41:00 dave>
+
+Keywords: _idcheck_, _authentication_
+
+Introduction
+============
+
+IDCheck is an open source authentication system.  It is
+available from http://idcheck.sourceforge.net/
+
+This software provides a client to IDCheck that allows
+servlets to authenticate users via an IDCheck server, and
+query an in-memory database (aka hash-table) of user
+information stored by IDCheck.
+
+There is an example servlet in the file example-servlet.ss.
+To run this example, edit test-configuration.ss to configure
+the IDCheck library for your test environment, then run the
+run-example-servlet.ss script:
+
+    mzscheme -mtv run-example-servlet.ss
+
+IDCheck API
+===========
+
+Types
+-----
+
+> exn:idcheck
+
+Exception thrown when the IDCheck library encounters an
+error.  A subclass for exn, it declares no additional
+fields.  Use exn:idcheck? to check type.
+
+Parameters
+----------
+
+> idcheck-url : (parameter string)
+
+The URL of the IDCheck CGI we communicate with.
+
+Example: "http://idcheck.untyped.com/idcheck"
+  
+> idcheck-redirect-url : (parameter string)
+
+The URL we redirect people to so they can log in to IDCheck.
+This will normally be the same as idcheck-url, but may be
+different (for example, it may be https instead of http).
+
+Example: "https://idcheck.untyped.com/idcheck"
+
+> base-url : (parameter string)
+
+The base URL, *without a trailing slash*, of the server
+running this IDCheck client.
+
+Example: "http://www.untyped.com"
+  
+> idcheck-cookie-domain : (parameter string)
+
+The "domain" attribute set on IDCheck cookies. It must be
+a partial domain name, starting with a full stop. For example:
+
+     ".untyped.com"
+
+The parameter must be set to a common suffix of the domain name
+of the local web server and the IDCheck server. For example:
+
+    IDCheck server:    "idcheck.untyped.com"
+    Web server:        "www.untyped.com"
+    Parameter setting: ".untyped.com"
+
+The parameter must be set before the main library functions 
+can be used.
+
+
+Functions
+---------
+
+> (with-idcheck-authenticated-login request controller)
+with-idcheck-authenticated-login : request (request -> 'a) -> 'a
+
+This function accepts two arguments: a request (see the web
+server documentation) and a controller.  It ensures the user
+is authenticated by IDCheck (possibly generated several web
+requests) before passing control to the controller.
+
+> (get-key request)
+get-key : request -> (U string #f)
+
+Get and validate the IDCheck key associated with this
+request, or #f if no key exists
+
+> (idcheck-login request)
+idcheck-login : request -> request
+
+Login the user via IDCheck if they have not already been
+logged in.  Stores the user information returned by IDCheck
+in the database.
+
+> (idcheck-logout request)
+idcheck-logout : request -> request
+
+Removes the user information from the database, and clears
+the cookie containing the key.  
+
+Note that this function does *not* logout the user from
+IDCheck.  Logging out a user from IDCheck is problematic, as
+their single IDCheck login can be shared between multiple
+applications.  So this function clears *our* record of their
+login, but not IDCheck's record.
+
+> (lookup-user key)
+lookup-user : string -> (U string #f)
+
+Gets the user information from the database, or #f if no
+information exists.
+
+> (remove-user! key)
+remove-user! : string -> void
+
+Removes the user from the database
+
+
+Licence
+=======
+
+This software is licenced under the latest version of the
+LGPL at the time of release.  See the top of this file for
+the date, and the Internet for the rest of the legal stuff.
