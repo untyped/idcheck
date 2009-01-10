@@ -6,6 +6,7 @@
          scheme/pretty
          srfi/13
          srfi/26
+         web-server/http
          (prefix-in ws: web-server/servlet)
          (planet schematics/macro:1/aif)
          "base.ss"
@@ -189,9 +190,17 @@ ENDSTR
             [else (pretty-print (list "IDCheck error: request was:"
                                       (cons 'method    (request-method    request))
                                       (cons 'URL       (url->string (request-uri request)))
-                                      (cons 'headers   (request-headers   request))
-                                      (cons 'bindings  (request-bindings  request))
-                                      (cons 'post-data (request-post-data request))
+                                      (cons 'headers   (map (lambda (header)
+                                                              (cons (header-field header)
+                                                                    (header-value header)))
+                                                            (request-headers/raw request)))
+                                      (cons 'bindings  (map (lambda (binding)
+                                                              (cons (binding-id binding)
+                                                                    (if (binding:form? binding)
+                                                                        (binding:form-value binding)
+                                                                        '<<FILE>>)))
+                                                            (request-bindings/raw request)))
+                                      (cons 'post-data (request-post-data/raw request))
                                       (cons 'host-ip   (request-host-ip   request))
                                       (cons 'host-port (request-host-port request))
                                       (cons 'client-ip (request-client-ip request))))
@@ -241,14 +250,8 @@ ENDSTR
               (add-user! prereg-key personal-data)
               (my-redirect-to
                url
-               `((set-cookie
-                  .
-                  ,(print-cookie
-                    (set-private-cookie prereg-key)))
-                 (set-cookie
-                  .
-                  ,(print-cookie
-                    (clear-idcheck-cookie))))))
+               `((set-cookie . ,(print-cookie (set-private-cookie prereg-key)))
+                 (set-cookie . ,(print-cookie (clear-idcheck-cookie))))))
             (preregister+login))))))
 
 ; string -> string
