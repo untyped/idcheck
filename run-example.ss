@@ -3,7 +3,7 @@
 (require (for-syntax scheme/base)
          scheme/runtime-path
          web-server/servlet
-         (planet untyped/instaservlet:2)
+         web-server/servlet-env
          "base.ss"
          "idcheck.ss"
          "test-configuration.ss")
@@ -50,10 +50,11 @@
 
 (print-struct #t)
 
-(go! (lambda (request)
-       (parameterize ([idcheck-url           test-idcheck-url]
-                      [idcheck-redirect-url  test-idcheck-redirect-url]
-                      [base-url              test-base-url]
-                      [idcheck-cookie-domain test-idcheck-cookie-domain])
-         (menu request)))
-     #:port 5678)
+(serve/servlet
+ (lambda (request)
+                 (parameterize ([idcheck-url           test-idcheck-url]
+                                [idcheck-redirect-url  test-idcheck-redirect-url]
+                                [base-url              test-base-url]
+                                [idcheck-cookie-domain test-idcheck-cookie-domain])
+                   (menu request)))
+               #:port 5678)
