@@ -3,6 +3,7 @@
 (require scheme/match
          web-server/http
          xml/xml
+         (planet untyped/mirrors:2/plain/util)
          "base.ss"
          "cookie.ss")
 
@@ -131,18 +132,19 @@ ENDSTR
 (define (my-redirect-to url headers)
   (make-response/full
    302
-   "Moved temporarily"
+   (string+bytes->message #"Moved temporarily")
    (current-seconds)
-   #"text/html"
+   (string+bytes->mime-type #"text/html")
    (cons (make-header #"Location" (string->bytes/utf-8 url))
          (map (lambda (kvp)
                 (make-header (string->bytes/utf-8 (symbol->string (car kvp)))
                              (string->bytes/utf-8 (cdr kvp))))
               headers))
-   (list (xexpr->string
-          `(html (head (meta ((http-equiv "refresh") (url ,url)))
-                       (title "Redirect to " ,url))
-                 (body (p "Redirecting to " (a ([href ,url]) ,url))))))))
+   (map string+bytes->content
+        (list (xexpr->string
+               `(html (head (meta ((http-equiv "refresh") (url ,url)))
+                            (title "Redirect to " ,url))
+                      (body (p "Redirecting to " (a ([href ,url]) ,url)))))))))
 
 ; Name of the cookie used to communicate with the IDCheck server
 (define idcheck-cookie-name "idcheck.request")
