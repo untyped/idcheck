@@ -34,7 +34,7 @@
 (define (key->number/fail str)
   (if (registered-key? str)
       (string->number str)
-      (raise-exn:idcheck (format "The string ~a is not a valid IDCheck key" str))))
+      (raise-exn exn:idcheck (format "The string ~a is not a valid IDCheck key" str))))
 
 ; Provide statements -----------------------------
 

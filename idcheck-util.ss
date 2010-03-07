@@ -32,8 +32,8 @@
   (let ([cookie-domain (idcheck-cookie-domain)])
     (if cookie-domain
         cookie-domain
-        (raise-exn:idcheck
-         #<<ENDSTR
+        (raise-exn exn:idcheck
+          #<<ENDSTR
 The idcheck-cookie-domain parameter has not been set.
 Initialize the parameter with a call to parameterize as follows:
 
@@ -41,7 +41,7 @@ Initialize the parameter with a call to parameterize as follows:
      ; Insert code here...
      )
 ENDSTR
-         ))))
+          ))))
 
 ; string -> string
 (define (preregistration-key? key)
@@ -60,9 +60,9 @@ ENDSTR
 
 ; headers -> (values (U string #f) (U string #f))
 (define (headers-keys headers)
-  (let* ([cookies (headers-cookies headers)]
+  (let* ([cookies    (headers-cookies headers)]
          [prereg-key (get-cookie/single "idcheck.request" cookies)]
-         [reg-key (get-cookie/single "idcheck" cookies)])
+         [reg-key    (get-cookie/single "idcheck" cookies)])
     (values prereg-key reg-key)))
 
 ; headers -> (U string #f)
@@ -122,8 +122,7 @@ ENDSTR
       (string->number minor)
       (string->number status)
       reason)]
-    [_ (raise-exn:idcheck
-        (format "Invalid status line: ~a" string))]))
+    [_ (raise-exn exn:idcheck (format "invalid status line: ~a" string))]))
 
 ; string (alistof symbol string) -> response
 ;

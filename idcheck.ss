@@ -9,6 +9,7 @@
          web-server/http
          (prefix-in ws: web-server/servlet)
          (planet schematics/macro:1/aif)
+         (planet untyped/unlib:3/log)
          "base.ss"
          "cookie.ss"
          "idcheck-util.ss"
@@ -40,8 +41,8 @@
 ; and checks to make sure the parameter has been set.
 (define (get-idcheck-url)
   (let ([url (idcheck-url)])
-    (or url (raise-exn:idcheck
-             #<<ENDSTR
+    (or url (raise-exn exn:idcheck
+              #<<ENDSTR
 The idcheck-url parameter has not been set.
 Initialize the parameter with a call to parameterize as follows:
 
@@ -49,7 +50,7 @@ Initialize the parameter with a call to parameterize as follows:
      ; Insert code here...
      )
 ENDSTR
-             ))))
+              ))))
 
 ; (parameter string)
 ;
@@ -71,8 +72,8 @@ ENDSTR
   (let ([url (idcheck-redirect-url)])
     (if url
         url
-        (raise-exn:idcheck
-         #<<ENDSTR
+        (raise-exn exn:idcheck
+          #<<ENDSTR
 The idcheck-redirect-url parameter has not been set.
 Initialize the parameter with a call to parameterize as follows:
 
@@ -80,7 +81,7 @@ Initialize the parameter with a call to parameterize as follows:
      ; Insert code here...
      )
 ENDSTR
-         ))))
+          ))))
 
 ; (parameter string)
 ;
@@ -101,8 +102,8 @@ ENDSTR
   (let ([url (base-url)])
     (if url
         url
-        (raise-exn:idcheck
-         #<<ENDSTR
+        (raise-exn exn:idcheck
+          #<<ENDSTR
 The base-url parameter has not been set.
 Initialize the parameter with a call to parameterize as follows:
 
@@ -112,7 +113,7 @@ Initialize the parameter with a call to parameterize as follows:
 
 Note: do not include a trailing slash.
 ENDSTR
-         ))))
+          ))))
 
 ; Functions ------------------------------------
 
@@ -132,35 +133,29 @@ ENDSTR
         (let ((key (headers-registered-key headers)))
           (if (validate-key key)
               key
-              (begin (printf "Key not validated: ~s.~n" key)
+              (begin (log-warning* "IDCheck: key not validated" key)
                      #f)))
-        (begin (printf "No headers-registered-key: idcheck.request=[~s] idcheck=[~s].~n"
-                       (get-cookie/single "idcheck.request" (headers-cookies headers))
-                       (get-cookie/single "idcheck" (headers-cookies headers)))
+        (begin (log-warning* "IDCheck: no headers-registered-key"
+                             (format "idcheck.request=~a" (get-cookie/single "idcheck.request" (headers-cookies headers)))
+                             (format "idcheck=~a" (get-cookie/single "idcheck" (headers-cookies headers))))
                #f))))
 
 ; string -> (U string #f)
 ;
 ; Validate key and return personal data, if any
 (define (validate-key key)
-  (let* ([port
-          (get-impure-port
-           (string->url
-            (string-append (get-idcheck-url)
-                           "?version=2.0.9&check_cookie="
-                           key)))]
+  (let* ([port    (get-impure-port (string->url (string-append (get-idcheck-url) "?version=2.0.9&check_cookie=" key)))]
          [headers (purify-port port)]
-         [status (parse-status (read-line
-                                (open-input-string headers)))])
+         [status  (parse-status (read-line (open-input-string headers)))])
     (unless (successful? status)
       (close-input-port port)
-      (raise-exn:idcheck
-       (format "Validation of idcheck key failed with code ~a and reason ~a\n"
-               (status-code status)
-               (status-reason status))))
+      (raise-exn exn:idcheck
+        (format "Validation of IDCheck key failed with code ~a and reason ~a\n"
+                (status-code status)
+                (status-reason status))))
     (begin0
       (aif result (cut string=? <> "BAD") (port->string port)
-           (begin (printf "IDCheck returned BAD.~n")
+           (begin (log-warning* "IDCheck returned BAD")
                   #f)
            result)
       (close-input-port port))))
@@ -169,9 +164,9 @@ ENDSTR
 (define (idcheck-login request)
   (with-handlers ([exn:fail:network?
                    (lambda (exn) 
-                     (raise-exn:idcheck 
-                      (format "Could not connect to IDCheck service. Reason: ~a"
-                              (exn-message exn))))])
+                     (raise-exn exn:idcheck 
+                       (format "Could not connect to IDCheck service. Reason: ~a"
+                               (exn-message exn))))])
     (let ([headers (ws:request-headers request)])
       (cond [(validated? headers)
              (let ((key (headers-registered-key headers)))
@@ -187,24 +182,7 @@ ENDSTR
                (if (validate-key prereg-key)
                    (set-cookie+redirect request)
                    (preregister+login)))]
-            [else (pretty-print (list "IDCheck error: request was:"
-                                      (cons 'method    (request-method    request))
-                                      (cons 'URL       (url->string (request-uri request)))
-                                      (cons 'headers   (map (lambda (header)
-                                                              (cons (header-field header)
-                                                                    (header-value header)))
-                                                            (request-headers/raw request)))
-                                      (cons 'bindings  (map (lambda (binding)
-                                                              (cons (binding-id binding)
-                                                                    (if (binding:form? binding)
-                                                                        (binding:form-value binding)
-                                                                        '<<FILE>>)))
-                                                            (request-bindings/raw request)))
-                                      (cons 'post-data (request-post-data/raw request))
-                                      (cons 'host-ip   (request-host-ip   request))
-                                      (cons 'host-port (request-host-port request))
-                                      (cons 'client-ip (request-client-ip request))))
-                  (raise-exn:idcheck "Should not get here.")]))))
+            [else (raise-exn exn:idcheck:bad-request "Should not get here.")]))))
 
 ; request -> request
 (define (idcheck-logout request)
@@ -276,21 +254,23 @@ ENDSTR
          [status  (parse-status (read-line (open-input-string headers)))])
     (unless (successful? status)
       (close-input-port port)
-      (raise-exn:idcheck
-       (format "Preregistration request to idcheck server failed with code ~a and reason ~a\n"
-               (status-code status)
-               (status-reason status))))
+      (raise-exn exn:idcheck
+        (format "Preregistration request to IDCheck server failed with code ~a and reason ~a\n"
+                (status-code status)
+                (status-reason status))))
     (let ([response (read-line port)])
       (close-input-port port)
       (if (preregistration-key? response)
           response
-          (raise-exn:idcheck
-           (format "Preregistration response ~a is not the correct format\n" response))))))
+          (raise-exn exn:idcheck
+            (format "Preregistration response ~a is not the correct format\n" response))))))
 
-; Provide statements -----------------------------
+; Provides ---------------------------------------
 
 (provide exn:idcheck?
          exn:idcheck
+         exn:idcheck:bad-request?
+         exn:idcheck:bad-request
          lookup-user
          add-user!
          remove-user!
