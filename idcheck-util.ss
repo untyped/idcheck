@@ -4,6 +4,7 @@
          web-server/http
          xml/xml
          (planet untyped/mirrors:2/plain/util)
+         (planet untyped/unlib:3/log)
          "base.ss"
          "cookie.ss")
 
@@ -97,6 +98,13 @@ ENDSTR
 (define (validated? headers)
   (let-values (((prereg reg) (headers-keys headers)))
     reg))
+
+; string headers -> void
+(define (log-cookies msg headers)
+  (let-values (((prereg reg) (headers-keys headers)))
+    (log-warning* (format "IDCHECK: ~a" msg)
+                  "idcheck"         reg
+                  "idcheck.request" prereg)))
 
 ; Copied from http-client
 
@@ -195,6 +203,8 @@ ENDSTR
          unvalidated?
          validated?
          successful?
+         
+         log-cookies
          
          headers-cookies
          headers-registered-key

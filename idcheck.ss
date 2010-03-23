@@ -133,11 +133,11 @@ ENDSTR
         (let ((key (headers-registered-key headers)))
           (if (validate-key key)
               key
-              (begin (log-warning* "IDCheck: key not validated" key)
+              (begin (log-cookies (format "key not validated: ~a" key)
+                                  (ws:request-headers request))
                      #f)))
-        (begin (log-warning* "IDCheck: no headers-registered-key"
-                             (format "idcheck.request=~a" (get-cookie/single "idcheck.request" (headers-cookies headers)))
-                             (format "idcheck=~a" (get-cookie/single "idcheck" (headers-cookies headers))))
+        (begin (log-cookies "no headers-registered-key"
+                            (ws:request-headers request))
                #f))))
 
 ; string -> (U string #f)
@@ -155,7 +155,7 @@ ENDSTR
                 (status-reason status))))
     (begin0
       (aif result (cut string=? <> "BAD") (port->string port)
-           (begin (log-warning* "IDCheck returned BAD")
+           (begin (log-cookies "IDCheck returned BAD" headers)
                   #f)
            result)
       (close-input-port port))))
@@ -163,12 +163,14 @@ ENDSTR
 ; request -> request
 (define (idcheck-login request)
   (with-handlers ([exn:fail:network?
-                   (lambda (exn) 
+                   (lambda (exn)
+                     (log-cookies "could not connect" (ws:request-headers request))
                      (raise-exn exn:idcheck 
                        (format "Could not connect to IDCheck service. Reason: ~a"
                                (exn-message exn))))])
     (let ([headers (ws:request-headers request)])
       (cond [(validated? headers)
+             (log-cookies "validated" headers)
              (let ((key (headers-registered-key headers)))
                (if (validate-key key)
                    (if (lookup-user key)
@@ -176,13 +178,16 @@ ENDSTR
                        (idcheck-login (clear-cookies request)))
                    (preregister+login)))]
             [(unregistered? headers)
+             (log-cookies "unregistered" headers)
              (preregister+login)]
             [(unvalidated? headers)
+             (log-cookies "unvalidated" headers)
              (let ((prereg-key (headers-preregistered-key headers)))
                (if (validate-key prereg-key)
                    (set-cookie+redirect request)
                    (preregister+login)))]
-            [else (raise-exn exn:idcheck:bad-request "Should not get here.")]))))
+            [else (log-cookies "Should not get here" headers)
+                  (raise-exn exn:idcheck:bad-request "Should not get here.")]))))
 
 ; request -> request
 (define (idcheck-logout request)
