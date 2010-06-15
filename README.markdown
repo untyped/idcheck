@@ -3,7 +3,7 @@ Unlib
 
 Developed by Untyped.
 
-Client for the [IDCheck][1] single-sign-on service, for [Racket][2].
+[IDCheck][1] single-sign-on client for [Racket][2].
 
 Copyright 2006 to 2010 Untyped.
 
