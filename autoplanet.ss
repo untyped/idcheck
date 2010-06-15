@@ -1,0 +1,12 @@
+#lang scheme
+
+(require scheme/runtime-path
+         (planet untyped/autoplanet:1))
+
+(define-runtime-path dev-path
+  "planetdev")
+
+(remove-hard-links)
+
+(install-local "owner" "unlib.plt"   3 99 (build-path dev-path "unlib"))
+(install-local "owner" "mirrors.plt" 2 99 (build-path dev-path "mirrors"))
